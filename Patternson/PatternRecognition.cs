@@ -13,6 +13,7 @@ namespace Patternson
     {
         public int Position;
         public byte Element;
+        public int Source;
     }
 
 
@@ -261,7 +262,32 @@ namespace Patternson
     public class PatternRecognition
     {
         /// <summary>
-        /// SearchPattern()
+        /// SearchPattern(byte[] dataA, byte[] dataB)
+        /// </summary>
+        /// <param name="dataA"></param>
+        /// <param name="dataB"></param>
+        
+        public PatternTable SearchPattern(byte[] dataA, byte[] dataB)
+        {
+            var dataC = new byte[dataA.Length + dataB.Length];
+
+            dataA.CopyTo(dataC, 0);
+            dataB.CopyTo(dataC, dataA.Length);
+
+            var patTable = SearchPattern(dataC);
+
+            // TODO: jhd
+            // foreach (PatternHistory pat in patTable.Values)
+            // {
+            //
+            // }
+
+            return patTable;
+        }
+        
+        
+        /// <summary>
+        /// SearchPattern(byte[] data)
         /// </summary>
         /// <param name="data"></param>
         /// <returns></returns>
