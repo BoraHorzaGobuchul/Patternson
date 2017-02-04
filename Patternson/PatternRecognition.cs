@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -99,7 +100,7 @@ namespace Patternson
             
             foreach (PatternKnot knot in this)
             {
-                text.Append("(" + knot.Position + ")" + (char)knot.Element + " ");
+                text.Append("(" + knot.Source + "," + knot.Position + ")" + (char)knot.Element + " ");
             }
 
             return text.ToString().TrimEnd(' ');
@@ -133,6 +134,7 @@ namespace Patternson
 
             return text.ToString().TrimEnd(' ');
         }
+
     }
 
 
@@ -261,6 +263,8 @@ namespace Patternson
     /// </summary>    
     public class PatternRecognition
     {
+        public List<byte> IgnoreData = new List<byte>();
+        
         /// <summary>
         /// SearchPattern(byte[] dataA, byte[] dataB)
         /// </summary>
@@ -276,11 +280,54 @@ namespace Patternson
 
             var patTable = SearchPattern(dataC);
 
-            // TODO: jhd
-            // foreach (PatternHistory pat in patTable.Values)
-            // {
-            //
-            // }
+
+            var patKeyToDelete = new HashSet<int>();
+
+            
+            for (int i = 0; i < patTable.Count; i++)
+            {
+                // assign each knot of the pattern at minTime to a certain source
+
+                var id = patTable.ToList()[i].Key;
+                var pat = patTable.ToList()[i].Value;
+
+                var minTime = pat.TimeLine.Min();
+
+                foreach (PatternKnot knot in pat)
+                {
+                    int absPos = knot.Position + minTime;
+
+                    knot.Source = (absPos < dataA.Length) ? 0 : 1; // 0 => dataA, 1 => dataB
+                }
+
+                
+                // each knot of a pattern should be part of the same source at any time
+                // if not the knot will be deleted 
+
+                foreach (int time in pat.TimeLine)
+                {
+                    var knotsToDelete = new List<PatternKnot>();
+
+                    foreach (PatternKnot knot in pat)
+                    {
+                        int absPos = knot.Position + time;
+
+                        int src = (absPos < dataA.Length) ? 0 : 1; // 0 => dataA, 1 => dataB
+                        
+                        if (knot.Source != src) knotsToDelete.Add(knot);
+                    }                  
+
+                    foreach (PatternKnot knot in knotsToDelete) pat.Remove(knot);
+
+                }
+
+                // patTable[id] = pat; ... not necessary, pat is a reference to patTable[id]
+
+                if (pat.Count < 2) patKeyToDelete.Add(id);
+
+            }
+
+            foreach (int key in patKeyToDelete) patTable.Remove(key); 
 
             return patTable;
         }
@@ -310,11 +357,11 @@ namespace Patternson
 
                 for (int i = 0; i < (data.Length - shift); i++)
                 {
-                    if (data[i] == Convert.ToByte('.')) continue; // only for testing
+                    if (IgnoreData.Contains(data[i])) continue;
 
-                    if (data[i + shift] == Convert.ToByte('.')) continue; // only for testing
-
-
+                    if (IgnoreData.Contains(data[i + shift])) continue;
+                    
+                    
                     if (data[i] == data[i + shift])
                     {
                         PatternKnot knot = new PatternKnot();
