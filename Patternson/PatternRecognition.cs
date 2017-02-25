@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,90 +14,40 @@ namespace Patternson
     {
         public int Position;
         public byte Element;
-        public int Source;
     }
-
-
-    /// <summary>
-    /// PatternInterval
-    /// </summary>
-    public class PatternInterval
-    {
-        public byte A;
-        public byte B;
-        public int Interval;
-        public int PositionOfA;
-    }
-
+        
 
     /// <summary>
     /// Pattern
     /// </summary>
     public class Pattern : List<PatternKnot>
     {
-        public int ContainsIntervalsOf(Pattern pat)
-        {
-            if (pat.Count == 0) return 0;
-
-            PatternIntervalIterator iteratorA = new PatternIntervalIterator(this);
-            PatternIntervalIterator iteratorB = new PatternIntervalIterator(pat);
-
-            PatternInterval intervalA;
-            PatternInterval intervalB;
-
-            int shared_intervals = 0;
-
-            while ((intervalB = iteratorB.NextInterval()) != null)
-            {
-                Boolean intervalB_present_in_patA = false;
-
-                while (((intervalA = iteratorA.NextInterval()) != null) && (intervalB_present_in_patA != true))
-                {
-                    if (intervalA.A == intervalB.A)
-                        if (intervalA.B == intervalB.B)
-                            if (intervalA.Interval == intervalB.Interval)
-                                intervalB_present_in_patA = true;
-                }
-
-                iteratorA.Reset();
-
-                if (intervalB_present_in_patA) shared_intervals++;
-            }
-
-            return shared_intervals;
-        }
-
-        public Boolean Add(int new_position, byte new_element)
+        #region public methods()
+        public bool Add(int newPosition, byte newElement)
         {
             foreach (PatternKnot knot in this)
-                if ((knot.Position == new_position) && (knot.Element == new_element)) return false;
+            {
+                if ((knot.Position == newPosition) && (knot.Element == newElement)) return false;
+            }
 
+            PatternKnot newKnot = new PatternKnot();
 
-            PatternKnot new_knot = new PatternKnot();
+            newKnot.Position = newPosition;
+            newKnot.Element = newElement;
 
-            new_knot.Position = new_position;
-            new_knot.Element = new_element;
-
-            this.Add(new_knot);
+            this.Add(newKnot);
 
             return true;
         }
 
-        public Pattern MakeCopy()
-        {
-            Pattern target = new Pattern();
-
-            foreach (PatternKnot knot in this) target.Add(knot.Position, knot.Element);
-
-            return target;
-        }
-
+        /// <summary>
+        /// Prints the content of the pattern in a readable text form
+        /// </summary>
+        /// <returns></returns>
         public String AsText()
         {
             StringBuilder text = new StringBuilder();
 
-            text.Clear();
-            
             foreach (PatternKnot knot in this)
             {
                 text.Append("(" + knot.Position + ")" + (char)knot.Element + " ");
@@ -104,7 +55,7 @@ namespace Patternson
 
             return text.ToString().TrimEnd(' ');
         }
-
+        #endregion
     }
 
 
@@ -115,47 +66,112 @@ namespace Patternson
     {
         public List<int> TimeLine { get; set; } = new List<int>();
 
+        public string SourceLine { get; set; }
 
-        public new String AsText()
+        #region public methods()
+        /// <summary>
+        /// Returns for a knot of the pattern the time positions it occurs in the data stream
+        /// </summary>
+        /// <param name="knot"></param>
+        /// <returns></returns>
+        public List<int> GetTimePositions(PatternKnot knot)
+        {
+            if (!Contains(knot)) return null;
+
+            return TimeLine.Select(timePoint => timePoint + knot.Position).ToList();
+        }
+
+        /// <summary>
+        /// Prints the content of the pattern and its timeline in a readable text form
+        /// </summary>
+        /// <returns></returns>
+        public new string AsText()
         {
             StringBuilder text = new StringBuilder();
-
-            text.Clear();
 
             text.Append(base.AsText() + "\n");
 
             text.Append("t: ");
-
-            for (int i = 0; i < this.TimeLine.Count; i++)
+            for (int i = 0; i < TimeLine.Count; i++)
             {
-                text.Append(this.TimeLine[i] + " ");
+                text.Append(TimeLine[i] + " ");
+            }
+
+            if (!string.IsNullOrEmpty(SourceLine))
+            {
+                text.Append("\ns: " + SourceLine);
             }
 
             return text.ToString().TrimEnd(' ');
         }
+        #endregion
     }
 
 
     /// <summary>
-    /// PatternTable
+    /// PatternTable. A dictionary of patterns and their timelines. The keys are the pattern IDs 
     /// </summary>
-    public class PatternTable : Dictionary<int, PatternHistory> // make singleton?
+    public class PatternTable : Dictionary<int, PatternHistory>
     {
+        public List<int> SourceOffset = new List<int>();
+
+        #region public methods()
+        /// <summary>
+        /// Returns for a time position in the data stream the index of the source to which it belongs
+        /// </summary>
+        /// <param name="timePos"></param>
+        /// <returns></returns>
+        private int GetSource(int timePos)
+        {
+            for (int source = 0; source < SourceOffset.Count; source++)
+            {
+                if (SourceOffset[source] > timePos)
+                {
+                    source--;
+                    return source;
+                }
+            }
+
+            return (SourceOffset.Count - 1);
+        }
+
+        /// <summary>
+        /// Returns for a occurrence of a pattern in the data stream to which sources the knots of the pattern belong
+        /// </summary>
+        /// <param name="pat"></param>
+        /// <param name="timePos"></param>
+        /// <returns></returns>
+        public List<int> GetSources(PatternHistory pat, int timePos)
+        {
+            if (!ContainsValue(pat)) return null;
+            if (!pat.TimeLine.Contains(timePos)) return null;
+
+            return pat.Select(knot => GetSource(timePos + knot.Position)).ToList();            
+        }
+
+        /// <summary>
+        /// Adds a new pattern to the pattern table. Returns the ID assigned to the pattern
+        /// </summary>
+        /// <param name="patEntry"></param>
+        /// <returns></returns>
         public int AddPatternEntry(PatternHistory patEntry)
         {
-            int patId = this.Count + 1;
+            int patId = Count + 1;
 
-            if (this.ContainsKey(patId)) return -1;
-
-            this.Add(patId, patEntry);
+            Add(patId, patEntry);
 
             return patId;
         }
 
-            
+        /// <summary>
+        /// Adds a new timepoint for a pattern in the pattern table. Returns false, if the pattern ID does not exists or the timeline already contains that timepoint
+        /// </summary>
+        /// <param name="patId"></param>
+        /// <param name="timePoint"></param>
+        /// <returns></returns>
         public bool AddTimePoint(int patId, int timePoint)
         {
-            if (this.ContainsKey(patId) == false) return false;
+            if (!this.ContainsKey(patId)) return false;
 
             if (this[patId].TimeLine.Contains(timePoint)) return false;
                 
@@ -165,86 +181,25 @@ namespace Patternson
             return true;
         }
 
+        /// <summary>
+        /// Prints the content of the pattern table in a readable textform
+        /// </summary>
+        /// <returns></returns>
         public string AsText()
         {
             var sb = new StringBuilder();
 
-            sb.Clear();
-
-            foreach (KeyValuePair<int, PatternHistory> pat in this)
+            foreach (var pat in this)
             {
                 sb.Append("ID: " + pat.Key + "\n" + pat.Value.AsText() + "\n\n");
             }
 
             return sb.ToString().TrimEnd('\n');
         }
+        #endregion
     }
 
 
-    /// <summary>
-    /// PatternIntervalIterator
-    /// </summary>
-    public class PatternIntervalIterator
-    {
-        private int current_i = 0;
-        private int current_j = 0;
-
-        private Pattern pat;
-
-
-        public PatternIntervalIterator(Pattern pat)
-        {
-            this.pat = pat;
-        }
-
-        public PatternInterval NextInterval()
-        {
-            PatternInterval next_interval = new PatternInterval();
-
-            current_j++;
-
-            if (current_j > (pat.Count - 1))
-            {
-                current_i++;
-
-                if (current_i > (pat.Count - 1)) return null;
-
-                current_j = current_i + 1;
-
-                if (current_j > (pat.Count - 1)) return null;
-            }
-
-            PatternKnot knotA = pat[current_i];
-            PatternKnot knotB = pat[current_j];
-
-            int interval = knotB.Position - knotA.Position;
-
-            if (interval >= 0)
-            {
-                next_interval.A = knotA.Element;
-                next_interval.B = knotB.Element;
-                next_interval.Interval = interval;
-                next_interval.PositionOfA = knotA.Position;
-            }
-            else
-            {
-                next_interval.A = knotB.Element;
-                next_interval.B = knotA.Element;
-                next_interval.Interval = interval * (-1);
-                next_interval.PositionOfA = knotB.Position;
-            }
-
-            return next_interval;
-        }
-
-        public void Reset()
-        {
-            current_i = 0;
-            current_j = 0;
-        }
-    }
-
-    
     /// <summary>
     /// PatternFrequency
     /// </summary>
@@ -261,37 +216,101 @@ namespace Patternson
     /// </summary>    
     public class PatternRecognition
     {
+        public List<byte> IgnoreData = new List<byte>();
+
+        #region SearchPattern(List<byte[]> data)
         /// <summary>
-        /// SearchPattern(byte[] dataA, byte[] dataB)
+        /// SearchPattern(List<byte[]> data)
         /// </summary>
-        /// <param name="dataA"></param>
-        /// <param name="dataB"></param>
-        
-        public PatternTable SearchPattern(byte[] dataA, byte[] dataB)
+        /// <param name="data"></param>
+        public PatternTable SearchPattern(List<byte[]> data)
         {
-            var dataC = new byte[dataA.Length + dataB.Length];
+            if (data == null)
+                throw new ArgumentNullException("SearchPattern: input data == null!");
 
-            dataA.CopyTo(dataC, 0);
-            dataB.CopyTo(dataC, dataA.Length);
+            // glues all data sources together to one data chain
+            var length = data.Select(d => d.Length).Sum();
+            var chain = new byte[length];
 
-            var patTable = SearchPattern(dataC);
+            int copyOffset = 0;
+            foreach (var d in data)
+            {
+                d.CopyTo(chain, copyOffset);
+                copyOffset += d.Length;
+            }
 
-            // TODO: jhd
-            // foreach (PatternHistory pat in patTable.Values)
-            // {
-            //
-            // }
 
-            return patTable;
+            var patTable = SearchPattern(chain);
+
+            // notes the starting point for each data source in the timeline of the pattern
+            for (int i = 0, offset = 0; i < data.Count(); i++ )
+            {
+                patTable.SourceOffset.Add(offset);
+                offset += data[i].Length;
+            }
+
+
+            var newPatTable = new PatternTable(); 
+
+            foreach (var entry in patTable)
+            {
+                var id = entry.Key;
+                var pat = entry.Value;
+
+                var diffTable = new Dictionary<string, List<int>>();
+
+                // calculates for each occurence (t) of the pattern the shift in data source from
+                // one pattern knot to the next and saves these differences in a string (diffKey).
+                // The string can vary over the timeline. For each diffKey the timepoints of its occurence
+                // are noted 
+                foreach (var t in pat.TimeLine)
+                {
+                    var sources = patTable.GetSources(pat, t);
+
+                    var diff = new StringBuilder();
+                    for (int k = 1; k < sources.Count; k++)
+                    {
+                        diff.Append(sources[k] - sources[k - 1] + " ");
+                    }
+                    
+                    var diffKey = diff.ToString().TrimEnd(' ');
+                    if (!diffTable.ContainsKey(diffKey))
+                    {
+                        diffTable.Add(diffKey, new List<int>());
+                    }
+
+                    diffTable[diffKey].Add(t);
+                }
+
+                // if the pattern has more than one diffKey, additional entries of the same pattern
+                // will be created in the pattern table. However, the diffkey should occur at least twice
+                // in the timeline of the pattern   
+                foreach (var diff in diffTable)
+                {
+                    if (diff.Value.Count > 1)
+                    {
+                        var patHistory = new PatternHistory();
+                        foreach (var knot in pat) patHistory.Add(knot);
+                        patHistory.TimeLine = diff.Value;
+                        patHistory.SourceLine = diff.Key;
+
+                        newPatTable.AddPatternEntry(patHistory);
+                    }
+                }
+            }
+
+            newPatTable.SourceOffset = patTable.SourceOffset;
+
+            return newPatTable;            
         }
-        
-        
+        #endregion
+
+        #region SearchPattern(byte[] data)
         /// <summary>
         /// SearchPattern(byte[] data)
         /// </summary>
         /// <param name="data"></param>
         /// <returns></returns>
-
         public PatternTable SearchPattern(byte[] data)
         {
             if (data == null)
@@ -310,11 +329,11 @@ namespace Patternson
 
                 for (int i = 0; i < (data.Length - shift); i++)
                 {
-                    if (data[i] == Convert.ToByte('.')) continue; // only for testing
+                    if (IgnoreData.Contains(data[i])) continue;
 
-                    if (data[i + shift] == Convert.ToByte('.')) continue; // only for testing
-
-
+                    if (IgnoreData.Contains(data[i + shift])) continue;
+                    
+                    
                     if (data[i] == data[i + shift])
                     {
                         PatternKnot knot = new PatternKnot();
@@ -346,17 +365,15 @@ namespace Patternson
             List<int> remove_key = new List<int>();
             HashSet<int> checked_key = new HashSet<int>();
 
-            foreach (KeyValuePair<int, PatternHistory> pat_entryA in pat_table)
+            foreach (var pat_entryA in pat_table)
             {
-                if (!checked_key.Add(pat_entryA.Key)) continue;
+                checked_key.Add(pat_entryA.Key);
 
-                foreach (KeyValuePair<int, PatternHistory> pat_entryB in pat_table)
+                foreach (var pat_entryB in pat_table)
                 {
                     if (checked_key.Contains(pat_entryB.Key)) continue;
 
-                    if (pat_entryA.Key == pat_entryB.Key) continue;
-
-
+                    
                     int identical_knots = 0;
 
                     if (pat_entryA.Value.Count == pat_entryB.Value.Count)
@@ -391,6 +408,6 @@ namespace Patternson
 
             return pat_table;            
         }
-
+        #endregion
     }
 }

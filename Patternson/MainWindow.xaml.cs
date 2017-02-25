@@ -43,6 +43,8 @@ namespace Patternson
         {
             patternRecognition = new PatternRecognition();
 
+            patternRecognition.IgnoreData.Add(Convert.ToByte('.'));
+
             foundPatterns = null;
 
             foundPatternsCollection = new ObservableCollection<int>();
