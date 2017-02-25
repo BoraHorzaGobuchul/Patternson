@@ -48,8 +48,6 @@ namespace Patternson
         [TestMethod]
         public void SearchPatternTest2()
         {
-            // Assert.Inconclusive("Implementation of test method not completed.");
-
             var patRecog = new PatternRecognition();
 
             patRecog.IgnoreData.Add(Convert.ToByte('.'));
@@ -76,15 +74,18 @@ namespace Patternson
             Assert.AreEqual(0, patTable.SourceOffset[0]);
             Assert.AreEqual(6, patTable.SourceOffset[1]);
 
-            // TODO jhd: find error in SearchRecognition
-
             var testResult = patTable.AsText();
 
             System.Diagnostics.Debug.Write(testResult);
 
-            //Assert.IsTrue(testResult.Contains("(0)A (1)A (6)A\nt: 0 1"));
+            // already accomplished by SearchPattern()
+            Assert.IsTrue(testResult.Contains("(0)A (1)A\nt: 0 1 6 \ns: 0"));
+
+            // still above ability of SearchPattern (test-fails),
+            // test formulates expection for the further development (test-driven development)
+            Assert.IsTrue(testResult.Contains("(0)A (5)A\nt: 1 2 \ns: 1"));
             
-            //Assert.AreEqual(1, patTable.Count);
+            Assert.AreEqual(2, patTable.Count);
 
         }
 
