@@ -23,11 +23,11 @@ namespace Patternson
     /// </summary>
     public partial class MainWindow : Window
     {
-        byte[] sourceData;
+        List<char> sourceData;
 
-        PatternRecognition patternRecognition;
+        PatternRecognition<char> patternRecognition;
 
-        PatternTable foundPatterns;
+        PatternTable<char> foundPatterns;
 
         ObservableCollection<int> foundPatternsCollection;
 
@@ -41,9 +41,11 @@ namespace Patternson
         /// </summary>
         public MainWindow()
         {
-            patternRecognition = new PatternRecognition();
+            sourceData = new List<char>();
 
-            patternRecognition.IgnoreData.Add(Convert.ToByte('.'));
+            patternRecognition = new PatternRecognition<char>();
+
+            patternRecognition.IgnoreData.Add('.');
 
             foundPatterns = null;
 
@@ -83,9 +85,16 @@ namespace Patternson
 
                 using (FileStream fs = File.OpenRead(fileName))
                 {
-                    sourceData = new byte[fs.Length];
+                    var buffer = new byte[fs.Length];
 
-                    fs.Read(sourceData, 0, (int)fs.Length);
+                    fs.Read(buffer, 0, (int)fs.Length);
+
+                    if (sourceData.Count > 0) sourceData.Clear();
+
+                    for (int i = 0; i < buffer.Length; i++)
+                    {
+                        sourceData.Add((char)buffer[i]);
+                    }
                 }
 
 
@@ -157,7 +166,7 @@ namespace Patternson
                 return;
             }
 
-            if (sourceData.Length > 0)
+            if (sourceData.Count() > 0)
             {
                 foundPatterns = patternRecognition.SearchPattern(sourceData);
 
@@ -165,7 +174,7 @@ namespace Patternson
                 {
                     var foundPatFreqList = new List<PatternFrequency>();
 
-                    foreach (KeyValuePair<int, PatternHistory> pat in foundPatterns)
+                    foreach (var pat in foundPatterns)
                     {
                         var patFreq = new PatternFrequency();
 
@@ -179,7 +188,7 @@ namespace Patternson
 
                     foundPatternsCollection.Clear();
 
-                    foreach (PatternFrequency patFreq in foundPatFreqList)
+                    foreach (var patFreq in foundPatFreqList)
                         foundPatternsCollection.Add(patFreq.PatId);
 
                     PatternCountLabel.Content = "Pattern count: " + foundPatterns.Count;
@@ -212,7 +221,7 @@ namespace Patternson
             int i = 0;
 
 
-            foreach (PatternKnot knot in foundPatterns[id])
+            foreach (var knot in foundPatterns[id])
             {
                 for (i = start; i < (timePos + knot.Position); i++)
                 {
@@ -235,9 +244,9 @@ namespace Patternson
             }
 
 
-            for (i = start; i < sourceData.Length; i++)
+            for (i = start; i < sourceData.Count(); i++)
             {
-                sb.Append((char)sourceData[i]);
+                sb.Append(sourceData[i]);
             }
 
             if (sb.Length > 0)
@@ -272,7 +281,7 @@ namespace Patternson
 
                 FoundPatternsFlowDocScrollViewer.Document = UpdateFoundPatternsFlowDoc();
 
-                PatternTextBlock.Text = ((Pattern)foundPatterns[id]).AsText();
+                PatternTextBlock.Text = ((Pattern<char>)foundPatterns[id]).AsText();
             }
         }
 
@@ -320,7 +329,7 @@ namespace Patternson
                 int maxCoincPat = 0;
                 int maxStartPat = 0;
 
-                foreach (KeyValuePair<int, PatternHistory> pat in foundPatterns)
+                foreach (var pat in foundPatterns)
                 {
                     int maxCoinc = 0;
                     int maxStart = 0;
@@ -332,7 +341,7 @@ namespace Patternson
                         bool mismatchWithQuestion = false;
                         bool fillsEmptySpotsInQuestion = false;
 
-                        foreach (PatternKnot knot in pat.Value)
+                        foreach (var knot in pat.Value)
                         {
                             int index = knot.Position + start;
 
@@ -386,7 +395,7 @@ namespace Patternson
                 {
                     matchingPatterns.Add(new int[] { maxPatId, maxStartPat });
 
-                    foreach (PatternKnot knot in foundPatterns[maxPatId])
+                    foreach (var knot in foundPatterns[maxPatId])
                         assignedToPattern.Add(maxStartPat + knot.Position);
                 }
 
@@ -403,7 +412,7 @@ namespace Patternson
 
                 int lastPos = 0;
 
-                foreach (PatternKnot knot in foundPatterns[id])
+                foreach (var knot in foundPatterns[id])
                     if (knot.Position > lastPos) lastPos = knot.Position;
 
                 if (answerLength < (lastPos + start + 1)) answerLength = lastPos + start + 1;
@@ -420,7 +429,7 @@ namespace Patternson
                 int id = pat[0];
                 int start = pat[1];
 
-                foreach (PatternKnot knot in foundPatterns[id])
+                foreach (var knot in foundPatterns[id])
                     if (sb[start + knot.Position] == ' ') sb[start + knot.Position] = (char)knot.Element;
             }
 

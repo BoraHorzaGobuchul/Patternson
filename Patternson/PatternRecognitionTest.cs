@@ -16,21 +16,15 @@ namespace Patternson
         [TestMethod]
         public void SearchPatternTest1()
         {
-            var patRecog = new PatternRecognition();
+            var patRecog = new PatternRecognition<char>();
 
-            patRecog.IgnoreData.Add(Convert.ToByte('.'));
+            patRecog.IgnoreData.Add('.');
+            var testData = "A.B.DC..AA.BCDA.BCDAA.B..C";
 
-
-            var testString = "A.B.DC..AA.BCDA.BCDAA.B..C";
-
-            var testData = new List<byte>();
-
-            foreach (char c in testString.ToCharArray())
-                testData.Add((byte)(c));
-
-            var patTable = patRecog.SearchPattern(testData.ToArray<byte>());
-
+            var patTable = patRecog.SearchPattern(testData.ToList());
             var testResult = patTable.AsText();
+
+            System.Diagnostics.Debug.Write(testResult);
 
             Assert.IsTrue(testResult.Contains("(0)A (11)A\nt: 8 9\n"));
             Assert.IsTrue(testResult.Contains("(0)A (2)B (3)C (4)D (5)A\nt: 9 14\n"));
@@ -48,26 +42,15 @@ namespace Patternson
         [TestMethod]
         public void SearchPatternTest2()
         {
-            var patRecog = new PatternRecognition();
+            var patRecog = new PatternRecognition<char>();
 
-            patRecog.IgnoreData.Add(Convert.ToByte('.'));
+            patRecog.IgnoreData.Add('.');
 
-            var testString = new string[] {
+            var testData = new string[] {
                 "AAA..A",
                 "AA...."
             };
-
-            var testData0 = new List<byte>();
-            var testData1 = new List<byte>();
-
-
-            foreach (char c in testString[0].ToCharArray())
-                testData0.Add((byte)(c));
-
-            foreach (char c in testString[1].ToCharArray())
-                testData1.Add((byte)(c));
-
-            var dataSources = new List<byte[]> { testData0.ToArray<byte>(), testData1.ToArray<byte>() };
+            var dataSources = new List<char>[] { testData[0].ToList(), testData[1].ToList() };
 
             var patTable = patRecog.SearchPattern(dataSources);
 
